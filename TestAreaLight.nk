@@ -1,0 +1,120 @@
+#! C:/Program Files/Nuke17.0v1/nuke-17.0.1.dll -nx
+version 17.0 v1
+define_window_layout_xml {<?xml version="1.0" encoding="UTF-8"?>
+<layout version="1.0">
+    <window x="0" y="0" w="2559" h="1361" screen="0">
+        <splitter orientation="1">
+            <split size="40"/>
+            <dock id="" hideTitles="1" activePageId="Toolbar.1">
+                <page id="Toolbar.1"/>
+            </dock>
+            <split size="1896" stretch="1"/>
+            <splitter orientation="2">
+                <split size="774"/>
+                <dock id="" activePageId="Viewer.1">
+                    <page id="Viewer.1"/>
+                </dock>
+                <split size="545"/>
+                <dock id="" activePageId="DAG.1" focus="true">
+                    <page id="DAG.1"/>
+                    <page id="Curve Editor.1"/>
+                    <page id="DopeSheet.1"/>
+                </dock>
+            </splitter>
+            <split size="615"/>
+            <dock id="" activePageId="Properties.1">
+                <page id="Properties.1"/>
+                <page id="uk.co.thefoundry.backgroundrenderview.1"/>
+                <page id="Scenegraph.1"/>
+            </dock>
+        </splitter>
+    </window>
+</layout>
+}
+Root {
+ inputs 0
+ name C:/Users/WORKSTATION/Downloads/SoftBox-master/SoftBox-master/TestAreaLight.nk
+ frame 44
+ format "2048 1556 0 0 2048 1556 1 2K_Super_35(full-ap)"
+ proxy_type scale
+ proxy_format "1024 778 0 0 1024 778 1 1K_Super_35(full-ap)"
+ colorManagement Nuke
+ workingSpaceLUT linear
+ monitorLut sRGB
+ monitorOutLUT rec709
+ int8Lut sRGB
+ int16Lut sRGB
+ logLut Cineon
+ floatLut linear
+}
+Camera4 {
+ inputs 0
+ constraint_maintain_offset_frame 0
+ setAuthorMode {local_parent_translate set_value}
+ local_parent_translate {0 0 3.9}
+ name Camera4
+ xpos 832
+ ypos 38
+}
+AreaLight {
+ inputs 0
+ translate {-22 0 15}
+ intensity 50
+ color {1.220000029 1.559999943 0.2200000286}
+ usd_prim_path /Lights/AreaLight1
+ name AreaLight4
+ xpos 865
+ ypos -186
+}
+AreaLight {
+ inputs 0
+ translate {0 0 0.8}
+ uniform_scale 1.5
+ intensity 0.4
+ color {0.4116667211 0.431666702 1.411666751}
+ shadow_samples 10
+ name AreaLight3
+ xpos 718
+ ypos -173
+}
+Dot {
+ name Dot1
+ xpos 796
+ ypos -88
+}
+CheckerBoard2 {
+ inputs 0
+ name CheckerBoard3
+ xpos 1043
+ ypos -309
+}
+push 0
+GeoCube {
+ inputs 2
+ rotate {0 25 0}
+ name GeoCube3
+ xpos 1027
+ ypos -144
+}
+GeoScene {
+ inputs 3
+ name GeoScene2
+ xpos 1028
+ ypos -71
+}
+push 0
+ScanlineRender2 {
+ inputs 3
+ name ScanlineRender2_3
+ xpos 1018
+ ypos 72
+}
+Viewer {
+ frame_range 1-100
+ gain 6
+ monitorOutNDISenderName "NukeX - TestAreaLight - Viewer1"
+ monitorOutOutputTransform rec709
+ name Viewer1
+ xpos 426
+ ypos 474
+}
