@@ -1,0 +1,144 @@
+cmake_minimum_required(VERSION 3.11)
+
+project(AreaLight)
+
+set(CMAKE_CXX_STANDARD 17)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
+
+# ============================================================================
+# RPATH Configuration - Make plugin portable
+# ============================================================================
+set(CMAKE_SKIP_BUILD_RPATH TRUE)
+set(CMAKE_SKIP_INSTALL_RPATH TRUE)
+set(CMAKE_MACOSX_RPATH FALSE)
+
+# ============================================================================
+# macOS SPECIFIC CONFIGURATION
+# ============================================================================
+if(APPLE)
+    set(CMAKE_OSX_ARCHITECTURES "arm64")
+endif()
+
+# Set Nuke version and directory (allow override via -DNUKE_VERSION)
+if(NOT DEFINED NUKE_VERSION)
+    set(NUKE_VERSION "17.0v1")
+endif()
+set(NUKE_BASE_DIR "/Applications/Nuke${NUKE_VERSION}")
+set(NUKE_INSTALL_DIR "${NUKE_BASE_DIR}/Nuke${NUKE_VERSION}.app/Contents/MacOS")
+
+message(STATUS "Nuke Version: ${NUKE_VERSION}")
+message(STATUS "Nuke Directory: ${NUKE_INSTALL_DIR}")
+
+# Verify Nuke directory exists
+if(NOT EXISTS ${NUKE_INSTALL_DIR})
+    message(FATAL_ERROR "Nuke directory not found: ${NUKE_INSTALL_DIR}")
+endif()
+if(NOT EXISTS ${NUKE_INSTALL_DIR}/libDDImage.dylib)
+    message(FATAL_ERROR "libDDImage.dylib not found in: ${NUKE_INSTALL_DIR}")
+endif()
+
+# ============================================================================
+# Include directories
+# ============================================================================
+include_directories(
+    ${NUKE_INSTALL_DIR}/include
+    ${CMAKE_CURRENT_SOURCE_DIR}
+)
+
+# ============================================================================
+# Compile options
+# ============================================================================
+add_compile_options(-fPIC)
+# Silence macOS OpenGL deprecation warnings (Nuke still uses legacy GL)
+add_compile_definitions(GL_SILENCE_DEPRECATION)
+
+set(CMAKE_SHARED_LIBRARY_PREFIX "")
+
+# ============================================================================
+# Plugin target
+# ============================================================================
+add_library(AreaLight SHARED
+    src/UsdAreaLightOp.cpp
+    src/UsdAreaLightOp.h
+)
+
+# Set plugin properties for macOS
+set_target_properties(AreaLight PROPERTIES
+    SUFFIX ".dylib"
+    INSTALL_NAME_DIR "@rpath"
+    BUILD_WITH_INSTALL_NAME_DIR TRUE
+)
+
+# ============================================================================
+# Find Nuke libraries
+# ============================================================================
+# On macOS / Nuke 17, the USG/FDK symbols (usg::Token, usg::Path, usg::Layer,
+# usg::lux::DiskLightPrim, usg::GeomEngine, fdk::Mat4, etc.) that ship as
+# separate libusg_*.so / libfdk_*.so on Linux are instead bundled into
+# Foundry's own wrapper libraries:
+#
+#   libFnUsdAbstraction.dylib  — usg::Token, usg::Path, usg::Layer, usg::Value,
+#                                 usg::lux::DiskLightPrim, usg::lux::ShadowAPI, fdk::*
+#   libFnUsdEngine.dylib       — usg::GeomEngine, usg::GeomStateTarget
+#   libFnUsdShim.0.8.dylib     — additional Token/Path/Value plumbing
+#   libDDImage.dylib            — DD::Image::GeomOp, knobs, viewer, etc.
+
+set(NUKE_LIB_DIR ${NUKE_INSTALL_DIR})
+
+set(LIB_DDIMAGE             "${NUKE_LIB_DIR}/libDDImage.dylib")
+set(LIB_FN_USD_ABSTRACTION  "${NUKE_LIB_DIR}/libFnUsdAbstraction.dylib")
+set(LIB_FN_USD_ENGINE       "${NUKE_LIB_DIR}/libFnUsdEngine.dylib")
+
+# FnUsdShim may have a versioned name — glob to find it
+file(GLOB LIB_FN_USD_SHIM "${NUKE_LIB_DIR}/libFnUsdShim*.dylib")
+if(LIB_FN_USD_SHIM)
+    list(GET LIB_FN_USD_SHIM 0 LIB_FN_USD_SHIM)
+endif()
+
+# Verify the critical libraries exist
+foreach(_lib LIB_DDIMAGE LIB_FN_USD_ABSTRACTION LIB_FN_USD_ENGINE)
+    if(NOT EXISTS "${${_lib}}")
+        message(FATAL_ERROR "${_lib} not found: ${${_lib}}")
+    endif()
+    message(STATUS "Found: ${_lib} -> ${${_lib}}")
+endforeach()
+
+if(LIB_FN_USD_SHIM AND EXISTS "${LIB_FN_USD_SHIM}")
+    message(STATUS "Found: LIB_FN_USD_SHIM -> ${LIB_FN_USD_SHIM}")
+else()
+    message(STATUS "FnUsdShim not found (may not be needed)")
+    set(LIB_FN_USD_SHIM "")
+endif()
+
+# ============================================================================
+# Link
+# ============================================================================
+target_link_libraries(AreaLight PRIVATE
+    ${LIB_DDIMAGE}
+    ${LIB_FN_USD_ABSTRACTION}
+    ${LIB_FN_USD_ENGINE}
+    ${LIB_FN_USD_SHIM}
+    "-framework OpenGL"
+)
+
+# ============================================================================
+# Install
+# ============================================================================
+install(TARGETS AreaLight DESTINATION ${CMAKE_INSTALL_PREFIX})
+
+# ============================================================================
+# Build summary
+# ============================================================================
+message(STATUS "========================================")
+message(STATUS "Build Configuration Summary:")
+message(STATUS "  Plugin: AreaLight.dylib")
+message(STATUS "  Nuke Version: ${NUKE_VERSION}")
+message(STATUS "  Nuke Directory: ${NUKE_INSTALL_DIR}")
+message(STATUS "  Architecture: ${CMAKE_OSX_ARCHITECTURES}")
+message(STATUS "  DDImage:          ${LIB_DDIMAGE}")
+message(STATUS "  FnUsdAbstraction: ${LIB_FN_USD_ABSTRACTION}")
+message(STATUS "  FnUsdEngine:      ${LIB_FN_USD_ENGINE}")
+message(STATUS "  FnUsdShim:        ${LIB_FN_USD_SHIM}")
+message(STATUS "  RPATH: Not set (portable)")
+message(STATUS "  Install Prefix: ${CMAKE_INSTALL_PREFIX}")
+message(STATUS "========================================")
