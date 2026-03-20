@@ -1,0 +1,110 @@
+cmake_minimum_required(VERSION 3.11)
+
+project(AreaLight)
+
+set(CMAKE_CXX_STANDARD 17)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
+
+# ============================================================================
+# RPATH Configuration - Make plugin portable
+# ============================================================================
+set(CMAKE_SKIP_BUILD_RPATH TRUE)
+set(CMAKE_SKIP_INSTALL_RPATH TRUE)
+
+# Set Nuke version and directory (allow override via -DNUKE_VERSION)
+if(NOT DEFINED NUKE_VERSION)
+    set(NUKE_VERSION "17.0v1")
+endif()
+set(NDKDIR /opt/Nuke${NUKE_VERSION})
+
+message(STATUS "Nuke Version: ${NUKE_VERSION}")
+message(STATUS "Nuke Directory: ${NDKDIR}")
+
+# Verify Nuke directory exists
+if(NOT EXISTS ${NDKDIR})
+    message(FATAL_ERROR "Nuke directory not found: ${NDKDIR}")
+endif()
+if(NOT EXISTS ${NDKDIR}/libDDImage.so)
+    message(FATAL_ERROR "libDDImage.so not found in: ${NDKDIR}")
+endif()
+
+# ============================================================================
+# Include directories
+# ============================================================================
+include_directories(
+    ${NDKDIR}/include
+    ${CMAKE_CURRENT_SOURCE_DIR}
+)
+
+# ============================================================================
+# Compile options
+# ============================================================================
+# Uncomment the following if needed for compatibility
+#set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -D_GLIBCXX_USE_CXX11_ABI=0")
+add_compile_options(-fPIC)
+
+set(CMAKE_SHARED_LIBRARY_PREFIX "")
+
+# ============================================================================
+# Plugin target
+# ============================================================================
+add_library(AreaLight SHARED
+    src/UsdAreaLightOp.cpp
+    src/UsdAreaLightOp.h
+)
+
+# ============================================================================
+# Find USG / FDK libraries shipped with Nuke
+# ============================================================================
+# Nuke 17+ ships these in its lib directory
+set(NUKE_LIB_DIR ${NDKDIR})
+
+# Core libs needed for GeomOp + USD light prims
+find_library(LIB_DDIMAGE   DDImage   PATHS ${NUKE_LIB_DIR} NO_DEFAULT_PATH)
+find_library(LIB_USG_GEOM  usg_geom  PATHS ${NUKE_LIB_DIR} NO_DEFAULT_PATH)
+find_library(LIB_USG_BASE  usg_base  PATHS ${NUKE_LIB_DIR} NO_DEFAULT_PATH)
+find_library(LIB_USG_LUX   usg_lux   PATHS ${NUKE_LIB_DIR} NO_DEFAULT_PATH)
+find_library(LIB_USG_ENGINE usg_engine PATHS ${NUKE_LIB_DIR} NO_DEFAULT_PATH)
+find_library(LIB_FDK_MATH  fdk_math  PATHS ${NUKE_LIB_DIR} NO_DEFAULT_PATH)
+
+# Fall back to direct .so paths if find_library doesn't match
+if(NOT LIB_DDIMAGE)
+    set(LIB_DDIMAGE ${NUKE_LIB_DIR}/libDDImage.so)
+endif()
+
+# Collect all found USG/FDK libs
+set(USG_FDK_LIBS "")
+foreach(_lib LIB_USG_GEOM LIB_USG_BASE LIB_USG_LUX LIB_USG_ENGINE LIB_FDK_MATH)
+    if(${_lib})
+        list(APPEND USG_FDK_LIBS ${${_lib}})
+        message(STATUS "Found: ${_lib} -> ${${_lib}}")
+    else()
+        message(STATUS "Not found as standalone lib: ${_lib} (may be part of DDImage)")
+    endif()
+endforeach()
+
+# ============================================================================
+# Link
+# ============================================================================
+target_link_libraries(AreaLight PRIVATE
+    ${LIB_DDIMAGE}
+    ${USG_FDK_LIBS}
+    OpenGL
+)
+
+# ============================================================================
+# Install
+# ============================================================================
+install(TARGETS AreaLight DESTINATION ${CMAKE_INSTALL_PREFIX})
+
+# ============================================================================
+# Build summary
+# ============================================================================
+message(STATUS "========================================")
+message(STATUS "Build Configuration Summary:")
+message(STATUS "  Plugin: AreaLight.so")
+message(STATUS "  Nuke Version: ${NUKE_VERSION}")
+message(STATUS "  Nuke Directory: ${NDKDIR}")
+message(STATUS "  RPATH: Not set (portable)")
+message(STATUS "  Install Prefix: ${CMAKE_INSTALL_PREFIX}")
+message(STATUS "========================================")
